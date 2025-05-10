@@ -1,0 +1,1876 @@
+openapi: 3.0.2
+
+info:
+  title: avi
+  version: 0.0.1
+  description: avi api swagger
+
+servers:
+  - url: '{protocol}://{server}:{port}/api/v1'
+    variables:
+      port:
+        default: '9000'
+      protocol:
+        default: http
+        enum:
+          - http
+          - https
+      server:
+        default: localhost
+
+paths:
+  /health-check:
+    get:
+      operationId: healthCheck
+      description: Returns 200 if service works okay.
+      responses:
+        '200':
+          description: Freon internal health-check
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        default: { $ref: '#/components/responses/500InternalSystemError' }
+
+  /base/chain-list:
+    get:
+      tags:
+        - base
+      operationId: baseChainList
+      summary: get support network list
+      responses:
+        '200':
+          description: response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Network'
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+
+  /token-info:
+    post:
+      operationId: tokenInfo
+      tags:
+        - token
+      summary: Get latest info about a specific token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - network
+              properties:
+                address:
+                  $ref: '#/components/schemas/Address'
+                network:
+                  $ref: '#/components/schemas/NetworkType'
+                res:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ResolutionType'
+                  description: Optional list of time resolutions for price changes
+      responses:
+        '200':
+          description: Token information response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenInfo'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+
+  /token-info/list:
+    post:
+      operationId: tokenList
+      tags:
+        - token
+      summary: Get token info list with pagination, sorting, and optional trade stats
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - count
+              properties:
+                networks:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/NetworkType'
+                  description: Filter by blockchain networks
+                sort_by:
+                  type: string
+                  enum: [ liquidity, price_usd, updated_at, created_at, price_change ]
+                  default: "liquidity"
+                  description: Sorting field
+                sort_value:
+                  type: string
+                res:
+                  $ref: '#/components/schemas/ResolutionType'
+                order_by:
+                  $ref: '#/components/schemas/OrderBy'
+                cursor:
+                  type: string
+                  description: Cursor for pagination
+                count:
+                  $ref: '#/components/schemas/PaginationCount'
+      responses:
+        '200':
+          description: Token info list response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TokenInfo'
+                  nextCursor:
+                    type: string
+                  backCursor:
+                    type: string
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+
+  /dex/pair-info/update-status:
+    post:
+      operationId: updatePairsStatus
+      tags:
+        - dex
+      summary: Update the status of multiple trading pairs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pairs
+              properties:
+                pairs:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - address
+                      - chain_id
+                      - new_status
+                      - reason
+                    properties:
+                      address:
+                        $ref: '#/components/schemas/Address'
+                      chain_id:
+                        type: integer
+                        format: uint32
+                      new_status:
+                        $ref: '#/components/schemas/PairState'
+                      reason:
+                        type: string
+      responses:
+        '200':
+          description: Successfully updated pair statuses
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - updated_pairs
+                properties:
+                  updated_pairs:
+                    type: array
+                    items:
+                      type: string
+                    description: "Successfully updated pairs"
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /dex/pair-info:
+    post:
+      operationId: pairInfo
+      tags:
+        - dex
+      summary: get latest info about pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - network
+              properties:
+                address:
+                  $ref: '#/components/schemas/Address'
+                network:
+                  $ref: '#/components/schemas/NetworkType'
+      responses:
+        '200':
+          description: response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PairInfo'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+
+  /dex/pair-info/list:
+    post:
+      operationId: pairList
+      tags:
+        - dex
+      summary: get all pairs from blockchain with pagination and chosen network
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - count
+              properties:
+                networks:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/NetworkType'
+                sort_by:
+                  type: string
+                  enum: [ apr, liquidity, updated_at, created_at ]
+                  default: "liquidity"
+                sort_value:
+                  type: string
+                order_by:
+                  $ref: '#/components/schemas/OrderBy'
+                search:
+                  type: string
+                  description: search by ticker or dex name
+                min_liquidity_usd:
+                  type: number
+                  format: double
+                max_liquidity_usd:
+                  type: number
+                  format: double
+                dex_names:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 3
+                dex_protocols:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 3
+                dex_factory_types:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - curveV2
+                      - stonfiV1
+                      - stonfiV2
+                      - dedustV1
+                      - balancerV2
+                      - uniswapV2
+                      - uniswapV3
+                cursor:
+                  type: string
+                count:
+                  $ref: '#/components/schemas/PaginationCount'
+      responses:
+        '200':
+          description: response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PairInfo'
+                  nextCursor:
+                    type: string
+                    minLength: 1
+                  backCursor:
+                    type: string
+                    minLength: 1
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+
+  /dex/farm-info:
+    post:
+      operationId: farmInfo
+      tags:
+        - farm
+      summary: get farm info by address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - network
+              properties:
+                address:
+                  $ref: '#/components/schemas/Address'
+                network:
+                  $ref: '#/components/schemas/NetworkType'
+      responses:
+        '200':
+          description: response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmInfo'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+
+  /dex/farm-info/list:
+    post:
+      operationId: farmList
+      tags:
+        - farm
+      summary: get all farms from blockchain with pagination and chosen network
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - count
+              properties:
+                networks:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/NetworkType'
+                factory_addresses:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Address'
+                sort_by:
+                  type: string
+                  enum: [ liquidity, apr, updated_at ]
+                  default: "liquidity"
+                sort_value:
+                  type: string
+                order_by:
+                  $ref: '#/components/schemas/OrderBy'
+                search:
+                  type: string
+                cursor:
+                  type: string
+                count:
+                  $ref: '#/components/schemas/PaginationCount'
+      responses:
+        '200':
+          description: response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FarmInfo'
+                  nextCursor:
+                    type: string
+                    minLength: 1
+                  backCursor:
+                    type: string
+                    minLength: 1
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+
+  /dex/dex-info/list:
+    post:
+      operationId: dexInfoList
+      tags:
+        - dex
+      summary: get all dexes from blockchain with pagination and chosen network
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                network:
+                  $ref: '#/components/schemas/NetworkType'
+      responses:
+        '200':
+          description: response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - count
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DexInfo'
+                  count:
+                    type: integer
+                    format: uint64
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+
+  /dex/pair-orderbook/list:
+    post:
+      operationId: pairOrderBookList
+      tags:
+        - dex
+      summary: get all pair swap transactions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - network
+                - count
+              properties:
+                address:
+                  $ref: '#/components/schemas/Address'
+                network:
+                  $ref: '#/components/schemas/NetworkType'
+                page:
+                  type: integer
+                  format: uint32
+                  default: 1
+                  minimum: 1
+                cursor:
+                  type: string
+                maker_address:
+                  type: string
+                order_by:
+                  $ref: '#/components/schemas/OrderBy'
+                tx_type:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TxType'
+                min_timestamp:
+                  type: string
+                  description: timestamp in RFC3339 with UTC
+                max_timestamp:
+                  type: string
+                  description: timestamp in RFC3339 with UTC
+                count:
+                  $ref: '#/components/schemas/PaginationCount'
+      responses:
+        '200':
+          description: response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Transaction'
+                  nextCursor:
+                    type: string
+                    minLength: 1
+                  backCursor:
+                    type: string
+                    minLength: 1
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+
+  /dex/price-charts:
+    get:
+      operationId: pairCharts
+      tags:
+        - chart
+      summary: price charts for dex pair
+      parameters:
+        - in: query
+          name: address
+          schema:
+            type: string
+            minLength: 20
+          required: true
+          description: pair address (format 0x...)
+        - in: query
+          name: network
+          schema:
+            $ref: '#/components/schemas/NetworkType'
+          required: true
+          description: blockchain network (ethereum, bsc, polygon...)
+        - in: query
+          name: res
+          schema:
+            $ref: '#/components/schemas/ResolutionType'
+          required: true
+          description: resolution of timeframe
+        - in: query
+          name: from
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: start time
+        - in: query
+          name: to
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: end time
+        - in: query
+          name: price_from_quote
+          schema:
+            type: boolean
+            default: false
+          required: false
+        - in: query
+          name: volume_from_quote
+          schema:
+            type: boolean
+            default: true
+          required: false
+      responses:
+        '200':
+          description: array of historical price candles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChartCandles'
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+
+  /nft/collection-orderbook/list:
+    post:
+      operationId: nftCollectionOrderBookList
+      tags:
+        - nft
+      summary: get all nft collection transactions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - network
+                - count
+              properties:
+                address:
+                  $ref: '#/components/schemas/Address'
+                network:
+                  $ref: '#/components/schemas/NetworkType'
+                cursor:
+                  type: string
+                  minLength: 1
+                count:
+                  $ref: '#/components/schemas/PaginationCount'
+      responses:
+        '200':
+          description: response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NftTransaction'
+                  nextCursor:
+                    type: string
+                  backCursor:
+                    type: string
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+
+  /nft/collection-info:
+    post:
+      operationId: nftCollection
+      tags:
+        - nft
+      summary: get latest info about nft collection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - network
+              properties:
+                address:
+                  $ref: '#/components/schemas/Address'
+                network:
+                  $ref: '#/components/schemas/NetworkType'
+      responses:
+        '200':
+          description: response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NftCollectionInfo'
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /nft/collection-info/list:
+    post:
+      operationId: nftCollectionList
+      tags:
+        - nft
+      summary: get all nft collections from blockchain with pagination and chosen network
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - network
+                - count
+              properties:
+                network:
+                  $ref: '#/components/schemas/NetworkType'
+                cursor:
+                  type: string
+                  minLength: 1
+                count:
+                  $ref: '#/components/schemas/PaginationCount'
+      responses:
+        '200':
+          description: response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NftCollectionInfo'
+                  nextCursor:
+                    type: string
+                  backCursor:
+                    type: string
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+
+  /nft/asset-info:
+    post:
+      operationId: nftAsset
+      tags:
+        - nft
+      summary: get latest info about nft asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - token_id
+                - network
+              properties:
+                address:
+                  $ref: '#/components/schemas/Address'
+                token_id:
+                  type: string
+                network:
+                  $ref: '#/components/schemas/NetworkType'
+      responses:
+        '200':
+          description: response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NftAssetInfo'
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+
+  /nft/asset-info/list:
+    post:
+      operationId: nftAssetInfoList
+      tags:
+        - nft
+      summary: get asset info list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - collection_address
+                - network
+                - count
+              properties:
+                collection_address:
+                  $ref: '#/components/schemas/Address'
+                network:
+                  $ref: '#/components/schemas/NetworkType'
+                cursor:
+                  type: string
+                  minLength: 1
+                count:
+                  $ref: '#/components/schemas/PaginationCount'
+      responses:
+        '200':
+          description: response
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NftAssetInfo'
+                  nextCursor:
+                    type: string
+                  backCursor:
+                    type: string
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+
+  /wallet/info:
+    post:
+      operationId: walletInfo
+      tags:
+        - wallet
+      summary: get latest info about wallet by address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - network
+              properties:
+                address:
+                  $ref: '#/components/schemas/Address'
+                network:
+                  $ref: '#/components/schemas/NetworkType'
+      responses:
+        '200':
+          description: response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletInfo'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        default:
+          $ref: '#/components/responses/500InternalSystemError'
+
+#  /router/path:
+#    get:
+#      operationId: routerPath
+#      tags:
+#        - router
+#      summary: get route for path
+#      parameters:
+#        - in: query
+#          name: fromToken
+#          schema:
+#            type: string
+#            minLength: 42
+#            maxLength: 42
+#          required: true
+#        - in: query
+#          name: toToken
+#          schema:
+#            type: string
+#            minLength: 42
+#            maxLength: 42
+#          required: true
+#        - in: query
+#          name: network
+#          schema:
+#            type: string
+#            minLength: 1
+#            default: ethereum
+#            enum: [ ethereum, bsc, polygon, arbitrum, avalanche, base, zksync ]
+#          required: true
+#        - in: query
+#          name: maxSlippage
+#          schema:
+#            type: number
+#            format: float
+#            minimum: 0
+#            maximum: 1
+#            default: 0.1
+#          description: Slippage for swap. If you set 0.5, it means 50% slippage is acceptable.
+#        - in: query
+#          name: amount
+#          schema:
+#            type: number
+#            format: double
+#            minimum: 0
+#          required: true
+#        - in: query
+#          name: protocols
+#          schema:
+#            type: array
+#            items:
+#              type: string
+#              minLength: 1
+#              default: all
+#              enum: [ all, univ2, univ3 ]
+#        - in: query
+#          name: factories
+#          schema:
+#            type: array
+#            items:
+#              type: string
+#              minLength: 1
+#          description: list of dex factories
+#        - in: query
+#          name: maxHops
+#          schema:
+#            type: integer
+#            format: uint32
+#            minimum: 0
+#            maximum: 5
+#            default: 0
+#      responses:
+#        '200':
+#          description: object with dex router
+#          content:
+#            application/json:
+#              schema:
+#                $ref: '#/components/schemas/RouterInformation'
+#        default:
+#          $ref: '#/components/responses/500InternalSystemError'
+
+components:
+  schemas:
+    NetworkType:
+      type: string
+      enum:
+        - ethereum
+        - bsc
+        - polygon
+        - avalanche
+        - arbitrum
+        - base
+        - optimism
+        - ton
+        - fantom
+
+    OrderBy:
+      type: string
+      default: desc
+      enum:
+        - asc
+        - desc
+
+    PairState:
+      type: integer
+      description: "State of a trading pair"
+      enum:
+        - 0   # Default stable state
+        - 1   # Verified Pair: checked by manual moderation
+        - 2   # Unconfirmed: pair exists on-chain but has not been verified by other providers yet
+        - 50  # Low risk: anomalies detected occasionally
+        - 51  # Moderate risk: liquidity or price anomalies detected frequently
+        - 52  # High risk: liquidity or price anomalies detected constantly
+        - 53  # Severe risk: value is critically out of bounds
+        - 54  # Scam: mimics popular token symbols or uses deceptive practices
+
+    ResolutionType:
+      type: string
+      description: Available chart resolutions
+      enum: [ "1", "3", "5", "15", "30", "45", "1H", "2H", "4H", "6H", "12H", "1D", "1W", "1M", "6M", "1Y" ]
+
+    TxType:
+      type: string
+      default: all
+      enum:
+        - all
+        - buy
+        - sell
+        - mint
+        - burn
+        - add_liquidity
+        - remove_liquidity
+
+    Address:
+      type: string
+      minLength: 20
+
+    Network:
+      type: object
+      required:
+        - name
+        - chain_id
+      properties:
+        name:
+          type: string
+        chain_id:
+          type: integer
+          format: uint32
+        dexes:
+          type: integer
+          format: uint64
+        pairs:
+          type: integer
+          format: uint64
+        tvl:
+          type: string
+
+    Dex:
+      type: object
+      required:
+        - name
+        - factory
+        - chain_id
+        - lp_token_symbol
+      properties:
+        name:
+          type: string
+        factory:
+          $ref: '#/components/schemas/Address'
+        chain_id:
+          type: integer
+          format: uint32
+        lp_token_symbol:
+          type: string
+
+    Transaction:
+      type: object
+      required:
+        - timestamp
+        - hash
+        - chain_id
+        - tx_type
+        - maker_address
+        - from_address
+        - to_address
+        - block_info
+        - event_data
+      properties:
+        timestamp:
+          type: string
+        hash:
+          type: string
+        chain_id:
+          type: integer
+          format: uint32
+        maker_address:
+          $ref: '#/components/schemas/Address'
+        from_address:
+          $ref: '#/components/schemas/Address'
+        to_address:
+          $ref: '#/components/schemas/Address'
+        tx_type:
+          $ref: '#/components/schemas/TxType'
+        block_info:
+          type: object
+          oneOf:
+            - $ref: '#/components/schemas/EthereumTxData'
+            - $ref: '#/components/schemas/TonTxData'
+        event_data:
+          type: object
+          oneOf:
+            - $ref: '#/components/schemas/SwapEventData'
+            - $ref: '#/components/schemas/LiquidityEventData'
+
+    SwapEventData:
+      type: object
+      required:
+        - amount0
+        - amount1
+        - price0
+        - price1
+        - price_usd0
+        - price_usd1
+      properties:
+        amount0:
+          type: number
+          format: float64
+        amount1:
+          type: number
+          format: float64
+        price0:
+          type: number
+          format: float64
+        price1:
+          type: number
+          format: float64
+        price_usd0:
+          type: number
+          format: float64
+        price_usd1:
+          type: number
+          format: float64
+
+    LiquidityEventData:
+      type: object
+      required:
+        - tokens
+      properties:
+        tokens:
+          type: array
+          items:
+            $ref: '#/components/schemas/LiquidityTokenChange'
+        liquidity_usd:
+          type: number
+          format: float
+
+    LiquidityTokenChange:
+      type: object
+      required:
+        - address
+        - amount
+        - price_usd
+      properties:
+        address:
+          $ref: '#/components/schemas/Address'
+        symbol:
+          type: string
+        amount:
+          type: number
+          format: float64
+        price_usd:
+          type: number
+          format: float64
+
+    EthereumTxData:
+      type: object
+      required:
+        - block_number
+        - log_index
+        - gas_used
+        - fee_usd
+      properties:
+        block_number:
+          type: integer
+        log_index:
+          type: integer
+        gas_used:
+          type: integer
+        fee_usd:
+          type: number
+
+    TonTxData:
+      type: object
+      required:
+        - seq_no
+        - shard_id
+        - work_chain
+      properties:
+        seq_no:
+          type: integer
+        shard_id:
+          type: integer
+        work_chain:
+          type: integer
+
+    NftTransaction:
+      type: object
+      required:
+        - timestamp
+        - hash
+        - from_address
+        - to_address
+        - address
+        - token_id
+        - event_type
+        - block_number
+        - chain_id
+      properties:
+        timestamp:
+          type: string
+        hash:
+          type: string
+        from_address:
+          $ref: '#/components/schemas/Address'
+        to_address:
+          $ref: '#/components/schemas/Address'
+        address:
+          $ref: '#/components/schemas/Address'
+        token_id:
+          type: string
+        event_type:
+          type: string
+        block_number:
+          type: integer
+          format: uint64
+        chain_id:
+          type: integer
+          format: uint32
+
+    TypeToken:
+      type: string
+      enum: [ stable, wrapped, common ]
+
+
+    BaseToken:
+      type: object
+      required:
+        - name
+        - symbol
+        - address
+        - chain_id
+      properties:
+        name:
+          type: string
+        symbol:
+          type: string
+        address:
+          $ref: '#/components/schemas/Address'
+        chain_id:
+          type: integer
+          format: uint32
+        price_usd:
+          type: number
+
+    Token:
+      type: object
+      required:
+        - name
+        - symbol
+        - address
+        - chain_id
+        - price_usd
+        - price_native
+        - position
+        - decimals
+        - reserve
+        - total_supply
+      properties:
+        name:
+          type: string
+        symbol:
+          type: string
+        address:
+          $ref: '#/components/schemas/Address'
+        chain_id:
+          type: integer
+          format: uint32
+        price_usd:
+          type: number
+          format: float64
+        price_native:
+          type: number
+          format: float64
+        position:
+          type: integer
+          format: uint32
+        decimals:
+          type: integer
+          format: uint32
+        reserve:
+          type: number
+          format: float64
+        total_supply:
+          type: number
+          format: float64
+
+    TokenInfo:
+      type: object
+      description: Full token information with price and liquidity data
+      properties:
+        name:
+          type: string
+        symbol:
+          type: string
+        address:
+          $ref: '#/components/schemas/Address'
+        chain_id:
+          type: integer
+          format: uint32
+        price_usd:
+          type: number
+        decimals:
+          type: integer
+          format: uint32
+        total_supply:
+          type: number
+          format: float64
+        total_tvl:
+          type: number
+          format: float64
+        main_pool:
+          type: object
+          description: Main control pool information
+          properties:
+            address:
+              $ref: '#/components/schemas/Address'
+            ticker:
+              type: string
+            liquidity_usd:
+              type: number
+        price_changes:
+          type: array
+          description: Price changes over requested time resolutions
+          items:
+            type: object
+            properties:
+              resolution:
+                $ref: '#/components/schemas/ResolutionType'
+              open_price:
+                type: number
+              close_price:
+                type: number
+              high_price:
+                type: number
+              low_price:
+                type: number
+              volume:
+                type: number
+              change_pct:
+                type: number
+              volatility_pct:
+                type: number
+
+    Apr:
+      type: object
+      required:
+        - base_apr
+        - lp_reward_apr
+      properties:
+        base_apr:
+          type: string
+        lp_reward_apr:
+          type: string
+
+    TxnPairStat:
+      type: object
+      required:
+        - buys
+        - sells
+      properties:
+        buys:
+          type: integer
+          format: int32
+        sells:
+          type: integer
+          format: int32
+
+    PairInfo:
+      type: object
+      required:
+        - network
+        - dex
+        - pair_address
+        - ticker
+        - transaction_fee
+        - tokens
+        - txn
+        - volume
+        - price_change
+        - liquidity_usd
+        - last_updated_at
+        - created_at
+      properties:
+        network:
+          $ref: '#/components/schemas/Network'
+        dex:
+          $ref: '#/components/schemas/Dex'
+        pair_address:
+          $ref: '#/components/schemas/Address'
+        ticker:
+          type: string
+          minLength: 1
+        transaction_fee:
+          type: number
+          format: float64
+        tokens:
+          type: array
+          items:
+            $ref: '#/components/schemas/Token'
+        txn:
+          type: object
+          required:
+            - m5
+            - h1
+            - h6
+            - h24
+          properties:
+            m5:
+              $ref: '#/components/schemas/TxnPairStat'
+            h1:
+              $ref: '#/components/schemas/TxnPairStat'
+            h6:
+              $ref: '#/components/schemas/TxnPairStat'
+            h24:
+              $ref: '#/components/schemas/TxnPairStat'
+        volume:
+          type: object
+          required:
+            - m5
+            - h1
+            - h6
+            - h24
+          properties:
+            m5:
+              type: number
+            h1:
+              type: number
+            h6:
+              type: number
+            h24:
+              type: number
+        price_change:
+          type: object
+          required:
+            - m5
+            - h1
+            - h6
+            - h24
+          properties:
+            m5:
+              type: number
+            h1:
+              type: number
+            h6:
+              type: number
+            h24:
+              type: number
+        liquidity_usd:
+          type: number
+          format: float64
+        last_updated_at:
+          type: string
+        created_at:
+          type: string
+
+    FarmInfo:
+      type: object
+      required:
+        - network
+        - address
+        - pid
+        - ticker
+        - tvl
+        - reward_token
+        - apr_year
+        - apr_daily
+        - updated_at
+      properties:
+        network:
+          $ref: '#/components/schemas/Network'
+        address:
+          $ref: '#/components/schemas/Address'
+        pid:
+          type: integer
+          format: int64
+        ticker:
+          type: string
+          minLength: 1
+        tvl:
+          type: string
+        reward_token:
+          $ref: '#/components/schemas/BaseToken'
+        apr_year:
+          $ref: '#/components/schemas/Apr'
+        apr_daily:
+          $ref: '#/components/schemas/Apr'
+        updated_at:
+          type: string
+
+    DexInfo:
+      type: object
+      required:
+        - name
+        - total_tvl
+        - total_pairs
+        - total_networks
+      properties:
+        name:
+          type: string
+          description: The unique identifier of the DEX.
+        total_tvl:
+          type: number
+          format: double
+          description: The total value locked across all networks and protocols.
+        total_pairs:
+          type: integer
+          format: uint32
+          description: The total number of trading pairs across all networks and protocols.
+        total_networks:
+          type: integer
+          format: uint32
+          description: The total number of distinct blockchain networks supported.
+        supported_networks:
+          type: array
+          items:
+            $ref: '#/components/schemas/NetworkInfo'
+          description: A list of networks supported by the DEX, detailing each network's protocols.
+
+    NetworkInfo:
+      type: object
+      required:
+        - chain
+        - chain_id
+      properties:
+        chain:
+          type: string
+          description: The name of the blockchain network (e.g., Ethereum, Binance Smart Chain).
+        chain_id:
+          type: integer
+          format: uint32
+          description: The unique identifier of the blockchain network.
+        protocols:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolInfo'
+          description: A list of protocols available on this network with respective stats.
+
+    ProtocolInfo:
+      type: object
+      required:
+        - tvl
+        - average_liquidity_per_pair
+        - max_liquidity
+        - count_pairs
+      properties:
+        id:
+          type: string
+          description: The unique identifier of the protocol (e.g., UniswapV2Factory).
+        tvl:
+          type: number
+          format: double
+          description: Total value locked in the protocol.
+        average_liquidity_per_pair:
+          type: number
+          format: double
+          description: Average liquidity found per pair within this protocol.
+        max_liquidity:
+          type: number
+          format: double
+          description: Maximum liquidity found in any single pair within this protocol.
+        count_pairs:
+          type: integer
+          format: uint32
+          description: The total number of pairs available in this protocol.
+
+    NftCollectionInfo:
+      type: object
+      required:
+        - chain_id
+        - address
+        - name
+        - symbol
+      properties:
+        chain_id:
+          type: integer
+          format: uint32
+        address:
+          $ref: '#/components/schemas/Address'
+        owner:
+          type: string
+        name:
+          type: string
+        symbol:
+          type: string
+        items_total:
+          type: integer
+        owners_total:
+          type: integer
+        floor_price:
+          type: integer
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/NftAssetInfo'
+
+    NftAssetInfo:
+      type: object
+      required:
+        - token_type
+        - address
+        - token_id
+        - chain_id
+      properties:
+        chain_id:
+          type: integer
+          format: uint32
+        address:
+          $ref: '#/components/schemas/Address'
+        owner:
+          $ref: '#/components/schemas/Address'
+        minter:
+          $ref: '#/components/schemas/Address'
+        token_uri:
+          type: string
+        token_id:
+          type: string
+        raw_metadata:
+          type: string
+        amount:
+          type: string
+        token_type:
+          type: string
+        name:
+          type: string
+        image_uri:
+          type: string
+        description:
+          type: string
+        mint_block_number:
+          type: integer
+          format: uint64
+        mint_transaction_hash:
+          type: string
+        mint_timestamp:
+          type: string
+
+    ChartCandles:
+      type: object
+      required:
+        - s
+        - t
+        - o
+        - h
+        - l
+        - c
+        - v
+      properties:
+        s:
+          description: status
+          type: string
+          enum: [ ok, error, no_data ]
+        t:
+          type: array
+          description: array of candle timestamps
+          items:
+            type: integer
+            format: uint64
+        o:
+          type: array
+          description: array of candle open-price
+          items:
+            type: number
+        h:
+          type: array
+          description: array of candle high-price
+          items:
+            type: number
+        l:
+          type: array
+          description: array of candle low-price
+          items:
+            type: number
+        c:
+          type: array
+          description: array of candle close-price
+          items:
+            type: number
+        v:
+          description: array of volumes (value in native units)
+          type: array
+          items:
+            type: number
+        err_msg:
+          type: string
+          description: text of error message
+
+    RouterInformation:
+      type: object
+      required:
+        - from_token
+        - to_token
+        - route
+      properties:
+        from_token:
+          $ref: '#/components/schemas/BaseToken'
+        to_token:
+          $ref: '#/components/schemas/BaseToken'
+        feeAvgUSD:
+          type: string
+        maxHops:
+          type: integer
+          format: uint32
+          minimum: 0
+        route:
+          $ref: '#/components/schemas/RouterPath'
+
+    RouterTxArgs:
+      type: object
+      required:
+        - to_address
+        - chain_id
+        - gas_limit
+        - amount_in
+        - minimum_amount_out
+        - value
+      properties:
+        to_address:
+          $ref: '#/components/schemas/Address'
+        amount_in:
+          type: string
+          minLength: 1
+        minimum_amount_out:
+          type: string
+          minLength: 1
+        chain_id:
+          type: integer
+          format: uint32
+          minimum: 1
+        gas_limit:
+          type: integer
+          format: uint64
+          minimum: 1
+          description: max gas limit for router swap
+        value:
+          type: string
+          minLength: 1
+          description: msg.value for router if need swap ETH to WETH and etc...
+
+    RouterHop:
+      type: object
+      required:
+        - from_token
+        - to_token
+        - pair
+        - position
+      properties:
+        from_token:
+          $ref: '#/components/schemas/BaseToken'
+        to_token:
+          $ref: '#/components/schemas/BaseToken'
+        pair:
+          $ref: '#/components/schemas/Address'
+        position:
+          type: integer
+          format: uint32
+          minimum: 0
+
+    RouterPath:
+      type: array
+      items:
+        $ref: '#/components/schemas/RouterHop'
+
+    WalletInfo:
+      type: object
+      required:
+        - address
+        - chain_id
+        - total_amount_usd
+        - tokens
+      properties:
+        address:
+          $ref: '#/components/schemas/Address'
+        chain_id:
+          type: integer
+          format: uint32
+          minimum: 1
+        total_amount_usd:
+          type: number
+        tokens:
+          type: array
+          items:
+            $ref: '#/components/schemas/WalletTokenInfo'
+
+    WalletTokenInfo:
+      type: object
+      required:
+        - address
+        - symbol
+        - amount
+        - amount_usd
+        - price_usd
+      properties:
+        address:
+          $ref: '#/components/schemas/Address'
+        symbol:
+          type: string
+        amount:
+          type: string
+        amount_usd:
+          type: string
+        price_usd:
+          type: string
+
+    PaginationCount:
+      type: integer
+      format: uint32
+      minimum: 10
+      maximum: 1000
+      default: 10
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+        - description
+      properties:
+        code:
+          description: HTTP status
+          type: integer
+          format: int32
+        message:
+          type: string
+        description:
+          type: string
+
+    APIErrorResponse:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            required:
+              - type
+              - message
+            properties:
+              type:
+                type: string
+                enum: [ BAD_REQUEST, USER_ERROR, INVALID_REQUEST_ERROR, API_ERROR ]
+              code:
+                $ref: "#/components/schemas/APIErrorCode"
+              message:
+                type: string
+                maxLength: 200
+              param:
+                type: string
+                maxLength: 200
+
+    APIErrorCode:
+      type: string
+      minLength: 1
+      maxLength: 32
+      enum:
+        - INVALID_REQUEST_PARAMETERS
+        - INVALID_REQUEST_BODY
+        - INVALID_REQUEST
+        - ALREADY_EXISTS
+        - RATE_IS_EXCEEDED
+
+  responses:
+    204NoContent:
+      description: No content in response
+
+    400BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            properties:
+              message:
+                description: A human-readable explanation specific to this occurrence of the problem
+                type: string
+              status:
+                description: The HTTP status code for this occurrence of the problem
+                example: 404
+                format: int
+                type: integer
+            required:
+              - message
+              - status
+            type: object
+
+    401Unauthorized:
+      description: Authorization information is missing or invalid.
+
+    404NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            properties:
+              message:
+                description: A human-readable explanation specific to this occurrence of the problem
+                type: string
+              status:
+                description: The HTTP status code for this occurrence of the problem
+                example: 404
+                format: int
+                type: integer
+            required:
+              - message
+              - status
+            type: object
+
+    500InternalSystemError:
+      description: Server error. Retrying the request as is should succeed eventually.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/APIErrorResponse" }
+          example:
+            "errors": [
+              {
+                "type": "API_ERROR",
+                "code": "REQUEST_TIMED_OUT"
+              }
+            ]
